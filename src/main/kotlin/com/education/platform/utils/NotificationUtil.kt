@@ -6,45 +6,58 @@ import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.mail.SimpleMailMessage
 import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.stereotype.Component
-import javax.mail.internet.InternetAddress
 
 @Component
 class NotificationUtil {
     @Autowired
     private lateinit var javaMailSender: JavaMailSender
 
-    fun sendEmailNotification(user: User, subject: String, message: String) {
-        val mailMessage = SimpleMailMessage()
-        mailMessage.setFrom("education.platform@example.com")
-        mailMessage.setTo(user.email)
-        mailMessage.setSubject(subject)
-        mailMessage.setText(message)
-        javaMailSender.send(mailMessage)
+    fun sendWelcomeEmail(user: User) {
+        val message = SimpleMailMessage()
+        message.setTo(user.email)
+        message.setSubject("Welcome to Education Platform")
+        message.setText("Dear ${user.name},\n" +
+                "Welcome to Education Platform. We are excited to have you on board.\n" +
+                "Best regards,\n" +
+                "Education Platform Team")
+        javaMailSender.send(message)
+    }
+
+    fun sendCourseEnrollmentNotification(user: User, course: Course) {
+        val message = SimpleMailMessage()
+        message.setTo(user.email)
+        message.setSubject("Course Enrollment Notification")
+        message.setText("Dear ${user.name},\n" +
+                "You have been enrolled in the course ${course.name}.\n" +
+                "Best regards,\n" +
+                "Education Platform Team")
+        javaMailSender.send(message)
     }
 
     fun sendInAppNotification(user: User, message: String) {
-        // Implement in-app notification logic here
-        println("Sending in-app notification to user ${user.id} with message: $message")
+        // Send in-app notification using a notification service
+        println("Sending in-app notification to ${user.name}: $message")
     }
 
-    fun notifyCourseEnrollment(user: User, course: Course) {
-        val subject = "Enrolled in Course: ${course.name}"
-        val message = "Dear ${user.name}, you have been enrolled in the course ${course.name}."
-        sendEmailNotification(user, subject, message)
-        sendInAppNotification(user, "You have been enrolled in the course ${course.name}.")
+    fun sendQuizSubmissionNotification(user: User, course: Course, quizName: String) {
+        val message = SimpleMailMessage()
+        message.setTo(user.email)
+        message.setSubject("Quiz Submission Notification")
+        message.setText("Dear ${user.name},\n" +
+                "You have submitted the quiz $quizName in the course ${course.name}.\n" +
+                "Best regards,\n" +
+                "Education Platform Team")
+        javaMailSender.send(message)
     }
 
-    fun notifyAssignmentSubmission(user: User, assignmentName: String) {
-        val subject = "Assignment Submission: $assignmentName"
-        val message = "Dear ${user.name}, you have submitted the assignment $assignmentName."
-        sendEmailNotification(user, subject, message)
-        sendInAppNotification(user, "You have submitted the assignment $assignmentName.")
-    }
-
-    fun notifyQuizResult(user: User, quizName: String, score: Int) {
-        val subject = "Quiz Result: $quizName"
-        val message = "Dear ${user.name}, you have scored $score in the quiz $quizName."
-        sendEmailNotification(user, subject, message)
-        sendInAppNotification(user, "You have scored $score in the quiz $quizName.")
+    fun sendAssignmentSubmissionNotification(user: User, course: Course, assignmentName: String) {
+        val message = SimpleMailMessage()
+        message.setTo(user.email)
+        message.setSubject("Assignment Submission Notification")
+        message.setText("Dear ${user.name},\n" +
+                "You have submitted the assignment $assignmentName in the course ${course.name}.\n" +
+                "Best regards,\n" +
+                "Education Platform Team")
+        javaMailSender.send(message)
     }
 }
