@@ -1,7 +1,8 @@
 package com.education.platform.utils
 
 import com.education.platform.models.User
-import com.education.platform.models.Course
+import com.education.platform.modules.CourseModule
+import com.education.platform.modules.QuizModule
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.mail.SimpleMailMessage
 import org.springframework.mail.javamail.JavaMailSender
@@ -12,52 +13,75 @@ class NotificationUtil {
     @Autowired
     private lateinit var javaMailSender: JavaMailSender
 
-    fun sendWelcomeEmail(user: User) {
+    @Autowired
+    private lateinit var courseModule: CourseModule
+
+    @Autowired
+    private lateinit var quizModule: QuizModule
+
+    fun sendCourseNotification(courseId: Int, message: String) {
+        val course = courseModule.getCourseById(courseId)
+        val students = course.students
+        students.forEach { student ->
+            sendEmail(student.email, "Course Notification", message)
+            sendInAppMessage(student.id, message)
+        }
+    }
+
+    fun sendQuizNotification(quizId: Int, message: String) {
+        val quiz = quizModule.getQuizById(quizId)
+        val students = quiz.students
+        students.forEach { student ->
+            sendEmail(student.email, "Quiz Notification", message)
+            sendInAppMessage(student.id, message)
+        }
+    }
+
+    private fun sendEmail(to: String, subject: String, body: String) {
         val message = SimpleMailMessage()
-        message.setTo(user.email)
-        message.setSubject("Welcome to Education Platform")
-        message.setText("Dear ${user.name},\n" +
-                "Welcome to Education Platform. We are excited to have you on board.\n" +
-                "Best regards,\n" +
-                "Education Platform Team")
+        message.setTo(to)
+        message.setSubject(subject)
+        message.setText(body)
         javaMailSender.send(message)
     }
 
-    fun sendCourseEnrollmentNotification(user: User, course: Course) {
-        val message = SimpleMailMessage()
-        message.setTo(user.email)
-        message.setSubject("Course Enrollment Notification")
-        message.setText("Dear ${user.name},\n" +
-                "You have been enrolled in the course ${course.name}.\n" +
-                "Best regards,\n" +
-                "Education Platform Team")
-        javaMailSender.send(message)
+    private fun sendInAppMessage(userId: Int, message: String) {
+        // In-app messaging implementation
+        // For simplicity, we'll just print the message to the console
+        println("In-app message sent to user $userId: $message")
     }
+}
+```
 
-    fun sendInAppNotification(user: User, message: String) {
-        // Send in-app notification using a notification service
-        println("Sending in-app notification to ${user.name}: $message")
+```kotlin
+// Example usage in CourseModule.kt
+package com.education.platform.modules
+
+import com.education.platform.utils.NotificationUtil
+
+class CourseModule {
+    @Autowired
+    private lateinit var notificationUtil: NotificationUtil
+
+    fun createCourse(course: Course) {
+        // Create course logic...
+        notificationUtil.sendCourseNotification(course.id, "Course created successfully")
     }
+}
+```
 
-    fun sendQuizSubmissionNotification(user: User, course: Course, quizName: String) {
-        val message = SimpleMailMessage()
-        message.setTo(user.email)
-        message.setSubject("Quiz Submission Notification")
-        message.setText("Dear ${user.name},\n" +
-                "You have submitted the quiz $quizName in the course ${course.name}.\n" +
-                "Best regards,\n" +
-                "Education Platform Team")
-        javaMailSender.send(message)
-    }
+```kotlin
+// Example usage in QuizModule.kt
+package com.education.platform.modules
 
-    fun sendAssignmentSubmissionNotification(user: User, course: Course, assignmentName: String) {
-        val message = SimpleMailMessage()
-        message.setTo(user.email)
-        message.setSubject("Assignment Submission Notification")
-        message.setText("Dear ${user.name},\n" +
-                "You have submitted the assignment $assignmentName in the course ${course.name}.\n" +
-                "Best regards,\n" +
-                "Education Platform Team")
-        javaMailSender.send(message)
+import com.education.platform.utils.NotificationUtil
+
+class QuizModule {
+    @Autowired
+    private lateinit var notificationUtil: NotificationUtil
+
+    fun createQuiz(quiz: Quiz) {
+        // Create quiz logic...
+        notificationUtil.sendQuizNotification(quiz.id, "Quiz created successfully")
     }
 }
