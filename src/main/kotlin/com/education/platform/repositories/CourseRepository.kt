@@ -7,11 +7,12 @@ import org.springframework.stereotype.Repository
 @Repository
 interface CourseRepository : JpaRepository<Course, Long> {
 
-    @Query("SELECT c FROM Course c WHERE c.teacher.id = :teacherId")
-    fun findByTeacherId(@Param("teacherId") teacherId: Long): List<Course>
+    @Query("SELECT c FROM Course c WHERE c.id = :id")
+    fun findCourseById(@Param("id") id: Long): Course?
 
-    @Query("SELECT c FROM Course c WHERE c.students.id = :studentId")
-    fun findByStudentId(@Param("studentId") studentId: Long): List<Course>
+    @Query("SELECT c FROM Course c WHERE c.name LIKE %:name%")
+    fun findCoursesByName(@Param("name") name: String): List<Course>
 
-    fun findById(id: Long): Course?
+    @Query("SELECT c FROM Course c WHERE c.description LIKE %:description%")
+    fun findCoursesByDescription(@Param("description") description: String): List<Course>
 }
