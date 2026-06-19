@@ -1,63 +1,60 @@
 package com.education.platform.utils
 
-import com.education.platform.models.User
 import com.education.platform.models.Course
+import com.education.platform.models.User
+import com.education.platform.services.CourseService
+import com.education.platform.services.UserService
+import kotlinx.html.*
+import kotlinx.html.stream.appendHTML
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.mail.SimpleMailMessage
-import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.stereotype.Component
+import java.util.*
 
 @Component
-class NotificationUtil {
-    @Autowired
-    private lateinit var javaMailSender: JavaMailSender
+class NotificationUtil @Autowired constructor(
+    private val courseService: CourseService,
+    private val userService: UserService
+) {
 
-    fun sendNotification(user: User, course: Course, message: String) {
-        // Send email notification
-        val email = SimpleMailMessage()
-        email.setTo(user.email)
-        email.setSubject("Notification from ${course.name}")
-        email.setText(message)
-        javaMailSender.send(email)
-
-        // Send in-app notification
-        // Assuming we have a notification repository
-        val notificationRepository = NotificationRepository()
-        val notification = Notification(user, course, message)
-        notificationRepository.save(notification)
+    fun sendCourseUpdateNotification(courseId: Int, message: String) {
+        val course = courseService.getCourseById(courseId)
+        if (course != null) {
+            val students = course.students
+            students.forEach { student ->
+                sendNotification(student, course, message)
+            }
+        }
     }
 
-    fun sendAssignmentNotification(user: User, course: Course, assignmentName: String, dueDate: String) {
-        val message = "Assignment $assignmentName is due on $dueDate for course ${course.name}"
-        sendNotification(user, course, message)
+    private fun sendNotification(student: User, course: Course, message: String) {
+        val notificationHtml = buildString {
+            appendHTML().html {
+                head {
+                    title("Course Update")
+                }
+                body {
+                    h1 { +course.name }
+                    p { +message }
+                }
+            }
+        }
+        // Send email or notification using a notification service
+        println("Sending notification to ${student.email}: $notificationHtml")
     }
 
-    fun sendQuizNotification(user: User, course: Course, quizName: String, dueDate: String) {
-        val message = "Quiz $quizName is due on $dueDate for course ${course.name}"
-        sendNotification(user, course, message)
-    }
-}
-
-class NotificationRepository {
-    fun save(notification: Notification) {
-        // Save notification to database
-        // For simplicity, we'll assume we have a MySQL database
-        val dbConnection = DatabaseConfig().getConnection()
-        val statement = dbConnection.prepareStatement("INSERT INTO notifications (user_id, course_id, message) VALUES (?, ?, ?)")
-        statement.setInt(1, notification.user.id)
-        statement.setInt(2, notification.course.id)
-        statement.setString(3, notification.message)
-        statement.executeUpdate()
-        dbConnection.close()
+    fun sendWelcomeNotification(student: User, course: Course) {
+        val welcomeMessage = "Welcome to ${course.name}! We're excited to have you on board."
+        sendNotification(student, course, welcomeMessage)
     }
 }
 
-class Notification(val user: User, val course: Course, val message: String)
-
-// Example usage
 fun main() {
-    val notificationUtil = NotificationUtil()
-    val user = User(1, "John Doe", "john@example.com")
-    val course = Course(1, "Math 101")
-    notificationUtil.sendNotification(user, course, "Hello from Math 101!")
+    val notificationUtil = NotificationUtil(
+        CourseService(),
+        UserService()
+    )
+    val courseId = 1
+    val message = "New course material has been added."
+    notificationUtil.sendCourseUpdateNotification(courseId, message)
 }
+``}
