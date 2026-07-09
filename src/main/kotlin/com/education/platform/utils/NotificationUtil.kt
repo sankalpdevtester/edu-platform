@@ -5,9 +5,11 @@ import com.education.platform.models.User
 import com.education.platform.services.CourseService
 import com.education.platform.services.UserService
 import kotlinx.html.*
+import kotlinx.html.stream.appendHTML
 import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.mail.SimpleMailMessage
+import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.stereotype.Component
-import java.util.*
 
 @Component
 class NotificationUtil {
@@ -17,50 +19,60 @@ class NotificationUtil {
     @Autowired
     private lateinit var userService: UserService
 
-    fun sendCourseUpdateNotification(courseId: Int, message: String) {
+    @Autowired
+    private lateinit var mailSender: JavaMailSender
+
+    fun sendCourseUpdateNotification(courseId: Long) {
         val course = courseService.getCourseById(courseId)
-        if (course != null) {
-            val students = course.students
-            students.forEach { student ->
-                val user = userService.getUserById(student.id)
-                if (user != null) {
-                    val notificationHtml = buildNotificationHtml(course, message)
-                    // Send email or notification to the user
-                    println("Sending notification to ${user.email}: $notificationHtml")
+        val students = course.students
+
+        students.forEach { student ->
+            val message = SimpleMailMessage()
+            message.setTo(student.email)
+            message.setSubject("Course Update: ${course.name}")
+            message.setText(buildNotificationEmailBody(course, student))
+
+            mailSender.send(message)
+        }
+    }
+
+    private fun buildNotificationEmailBody(course: Course, student: User): String {
+        return buildString {
+            appendHTML().html {
+                body {
+                    h2 { text("Course Update: ${course.name}") }
+                    p { text("Dear ${student.name},") }
+                    p { text("This is to inform you that the course ${course.name} has been updated.") }
+                    p { text("Please visit the course page to view the latest updates.") }
+                    a(href = "/courses/${course.id}") { text("View Course") }
                 }
             }
         }
     }
-
-    private fun buildNotificationHtml(course: Course, message: String): String {
-        return html {
-            head {
-                title("Course Update Notification")
-            }
-            body {
-                h1 { text("Course Update: ${course.name}") }
-                p { text(message) }
-                p {
-                    a(href = "/courses/${course.id}") {
-                        text("View Course")
-                    }
-                }
-            }
-        }.toString()
-    }
 }
+```
 
-class NotificationScheduler {
+```kotlin
+// Example usage in CourseController
+package com.education.platform.controllers
+
+import com.education.platform.utils.NotificationUtil
+import org.springframework.beans.factory.annotation.Autowired
+import org.springframework.web.bind.annotation.PutMapping
+import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.RestController
+
+@RestController
+class CourseController {
+    @Autowired
+    private lateinit var courseService: CourseService
+
     @Autowired
     private lateinit var notificationUtil: NotificationUtil
 
-    fun scheduleCourseUpdateNotifications() {
-        val courses = notificationUtil.courseService.getAllCourses()
-        courses.forEach { course ->
-            val lastUpdated = course.lastUpdated
-            if (lastUpdated != null && lastUpdated > Date(System.currentTimeMillis() - 86400000)) {
-                notificationUtil.sendCourseUpdateNotification(course.id, "Course updated: ${course.name}")
-            }
-        }
+    @PutMapping("/courses/{id}")
+    fun updateCourse(@PathVariable id: Long) {
+        courseService.updateCourse(id)
+        notificationUtil.sendCourseUpdateNotification(id)
     }
 }
