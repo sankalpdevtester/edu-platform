@@ -7,72 +7,88 @@ import com.education.platform.services.UserService
 import kotlinx.html.*
 import kotlinx.html.stream.appendHTML
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.mail.SimpleMailMessage
-import org.springframework.mail.javamail.JavaMailSender
 import org.springframework.stereotype.Component
+import java.util.*
 
 @Component
-class NotificationUtil {
-    @Autowired
-    private lateinit var courseService: CourseService
+class NotificationUtil @Autowired constructor(
+    private val courseService: CourseService,
+    private val userService: UserService
+) {
 
-    @Autowired
-    private lateinit var userService: UserService
-
-    @Autowired
-    private lateinit var mailSender: JavaMailSender
-
-    fun sendCourseUpdateNotification(courseId: Long) {
+    fun sendCourseUpdateNotification(courseId: Long, message: String) {
         val course = courseService.getCourseById(courseId)
-        val students = course.students
-
-        students.forEach { student ->
-            val message = SimpleMailMessage()
-            message.setTo(student.email)
-            message.setSubject("Course Update: ${course.name}")
-            message.setText(buildNotificationEmailBody(course, student))
-
-            mailSender.send(message)
-        }
-    }
-
-    private fun buildNotificationEmailBody(course: Course, student: User): String {
-        return buildString {
-            appendHTML().html {
-                body {
-                    h2 { text("Course Update: ${course.name}") }
-                    p { text("Dear ${student.name},") }
-                    p { text("This is to inform you that the course ${course.name} has been updated.") }
-                    p { text("Please visit the course page to view the latest updates.") }
-                    a(href = "/courses/${course.id}") { text("View Course") }
-                }
+        if (course != null) {
+            val students = course.students
+            students.forEach { student ->
+                sendNotification(student, course, message)
             }
         }
     }
+
+    private fun sendNotification(student: User, course: Course, message: String) {
+        val html = buildString {
+            appendHTML().html {
+                head {
+                    title("Course Update")
+                }
+                body {
+                    h1 { +course.name }
+                    p { +message }
+                }
+            }
+        }
+        // Send email using a mail service (e.g. Spring Mail)
+        // For simplicity, this example just prints the notification to the console
+        println("Sending notification to ${student.email}: $html")
+    }
+
+    fun sendWelcomeNotification(student: User, course: Course) {
+        val html = buildString {
+            appendHTML().html {
+                head {
+                    title("Welcome to ${course.name}")
+                }
+                body {
+                    h1 { +course.name }
+                    p { +"Welcome to the course! You have been successfully enrolled." }
+                }
+            }
+        }
+        // Send email using a mail service (e.g. Spring Mail)
+        // For simplicity, this example just prints the notification to the console
+        println("Sending welcome notification to ${student.email}: $html")
+    }
 }
 ```
-
 ```kotlin
 // Example usage in CourseController
 package com.education.platform.controllers
 
+import com.education.platform.models.Course
+import com.education.platform.models.User
+import com.education.platform.services.CourseService
 import com.education.platform.utils.NotificationUtil
 import org.springframework.beans.factory.annotation.Autowired
-import org.springframework.web.bind.annotation.PutMapping
-import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RestController
 
 @RestController
-class CourseController {
-    @Autowired
-    private lateinit var courseService: CourseService
+class CourseController @Autowired constructor(
+    private val courseService: CourseService,
+    private val notificationUtil: NotificationUtil
+) {
 
-    @Autowired
-    private lateinit var notificationUtil: NotificationUtil
+    @PostMapping("/courses/{courseId}/update")
+    fun updateCourse(@PathVariable courseId: Long, @RequestBody course: Course) {
+        courseService.updateCourse(courseId, course)
+        notificationUtil.sendCourseUpdateNotification(courseId, "The course has been updated.")
+    }
 
-    @PutMapping("/courses/{id}")
-    fun updateCourse(@PathVariable id: Long) {
-        courseService.updateCourse(id)
-        notificationUtil.sendCourseUpdateNotification(id)
+    @PostMapping("/courses/{courseId}/enroll")
+    fun enrollStudent(@PathVariable courseId: Long, @RequestBody student: User) {
+        courseService.enrollStudent(courseId, student)
+        notificationUtil.sendWelcomeNotification(student, courseService.getCourseById(courseId)!!)
     }
 }
