@@ -5,15 +5,10 @@ import com.education.platform.models.User
 import com.education.platform.services.CourseService
 import com.education.platform.services.UserService
 import kotlinx.html.*
+import kotlinx.html.stream.appendHTML
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.stereotype.Component
-import javax.mail.Message
-import javax.mail.MessagingException
-import javax.mail.Session
-import javax.mail.Transport
-import javax.mail.internet.InternetAddress
-import javax.mail.internet.MimeMessage
-import java.util.Properties
+import java.util.*
 
 @Component
 class NotificationUtil {
@@ -23,42 +18,19 @@ class NotificationUtil {
     @Autowired
     private lateinit var userService: UserService
 
-    fun sendCourseUpdateNotification(courseId: Int) {
+    fun sendCourseUpdateNotification(courseId: Int, message: String) {
         val course = courseService.getCourseById(courseId)
         if (course != null) {
             val students = course.students
             students.forEach { student ->
-                sendEmailNotification(student, course)
+                val notification = createNotificationHTML(course, message)
+                // Send notification to student via email or other channels
+                println("Sending notification to ${student.email}: $notification")
             }
         }
     }
 
-    private fun sendEmailNotification(student: User, course: Course) {
-        val properties = Properties()
-        properties["mail.smtp.host"] = "smtp.gmail.com"
-        properties["mail.smtp.port"] = "587"
-        properties["mail.smtp.auth"] = "true"
-        properties["mail.smtp.starttls.enable"] = "true"
-
-        val session = Session.getInstance(properties, object : javax.mail.Authenticator() {
-            override fun getPasswordAuthentication(): javax.mail.PasswordAuthentication {
-                return javax.mail.PasswordAuthentication("your-email@gmail.com", "your-password")
-            }
-        })
-
-        try {
-            val message = MimeMessage(session)
-            message.setFrom(InternetAddress("your-email@gmail.com"))
-            message.setRecipients(Message.RecipientType.TO, InternetAddress(student.email))
-            message.subject = "Course Update: ${course.name}"
-            message.setContent(buildHtmlContent(course), "text/html; charset=utf-8")
-            Transport.send(message)
-        } catch (e: MessagingException) {
-            println("Error sending email notification: ${e.message}")
-        }
-    }
-
-    private fun buildHtmlContent(course: Course): String {
+    private fun createNotificationHTML(course: Course, message: String): String {
         return buildString {
             appendHTML().html {
                 head {
@@ -66,8 +38,36 @@ class NotificationUtil {
                 }
                 body {
                     h1 { +course.name }
-                    p { +course.description }
-                    a(href = "/courses/${course.id}") { +course.name }
+                    p { +message }
+                    p { +"Course ID: ${course.id}" }
+                    p { +"Updated at: ${Date()}" }
+                }
+            }
+        }
+    }
+
+    fun sendWelcomeNotification(studentId: Int, courseId: Int) {
+        val student = userService.getUserById(studentId)
+        val course = courseService.getCourseById(courseId)
+        if (student != null && course != null) {
+            val notification = createWelcomeNotificationHTML(course, student)
+            // Send notification to student via email or other channels
+            println("Sending welcome notification to ${student.email}: $notification")
+        }
+    }
+
+    private fun createWelcomeNotificationHTML(course: Course, student: User): String {
+        return buildString {
+            appendHTML().html {
+                head {
+                    title("Welcome to ${course.name}")
+                }
+                body {
+                    h1 { +course.name }
+                    p { +"Welcome, ${student.name}!" }
+                    p { +"You have been enrolled in ${course.name}" }
+                    p { +"Course ID: ${course.id}" }
+                    p { +"Start date: ${course.startDate}" }
                 }
             }
         }
